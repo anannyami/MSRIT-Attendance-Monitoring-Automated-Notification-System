@@ -19,6 +19,12 @@ NOTIFICATION_SERVICE_URL = os.getenv("NOTIFICATION_SERVICE_URL", "http://localho
 
 EMAILS_CSV_PATH = os.getenv("EMAILS_CSV_PATH", "emails.csv")
 
+FERNET_KEY = os.getenv("FERNET_KEY", "")
+
+JWT_SECRET_KEY      = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
+JWT_ALGORITHM       = "HS256"
+JWT_EXPIRE_MINUTES  = int(os.getenv("JWT_EXPIRE_MINUTES", 1440))  # 24 hours
+
 # URL-encode password to safely handle special characters like @
 _db_password_escaped = quote_plus(DB_PASSWORD)
 DATABASE_URL = (

@@ -22,8 +22,10 @@ def get_db():
 def init_db() -> None:
     """Apply lightweight, idempotent migrations needed by the backend."""
     with engine.connect() as conn:
-        # Ensure student_email exists for alerting and email sync
         conn.execute(
             text("ALTER TABLE students ADD COLUMN IF NOT EXISTS student_email TEXT")
+        )
+        conn.execute(
+            text("ALTER TABLE teachers ADD COLUMN IF NOT EXISTS app_password_hash TEXT")
         )
         conn.commit()

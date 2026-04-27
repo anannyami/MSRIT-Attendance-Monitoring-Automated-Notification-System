@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   server: {
     host: '0.0.0.0',   // allows access from any device on college LAN
-    port: 5173,
+    port: 3030,
   },
 })

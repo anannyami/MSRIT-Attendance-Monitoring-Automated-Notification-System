@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 # ── Attendance Record ─────────────────────────────────────────────────────────
@@ -97,3 +97,26 @@ class HealthOut(BaseModel):
     status:     str
     db:         str
     version:    str = "2.0.0"
+
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class RegisterRequest(BaseModel):
+    name:             str
+    email:            EmailStr
+    portal_username:  str
+    portal_password:  str
+    app_password:     str
+
+
+class LoginRequest(BaseModel):
+    email:    EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token:  str
+    token_type:    str = "bearer"
+    teacher_id:    int
+    teacher_name:  str
+    teacher_email: str

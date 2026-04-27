@@ -17,6 +17,7 @@ class Teacher(Base):
     portal_username: Mapped[Optional[str]]      = mapped_column(String(255))
     # portal_password_encrypted intentionally excluded from ORM —
     # structurally prevents it from ever appearing in API responses.
+    app_password_hash: Mapped[Optional[str]]    = mapped_column(Text)
     created_at: Mapped[datetime]                = mapped_column(
         TIMESTAMP(timezone=True), server_default=func.now()
     )

@@ -16,6 +16,44 @@ def get_teacher_by_id(db: Session, teacher_id: int) -> Optional[Teacher]:
     return db.query(Teacher).filter(Teacher.id == teacher_id).first()
 
 
+def get_teacher_by_email(db: Session, email: str) -> Optional[Teacher]:
+    return db.query(Teacher).filter(Teacher.email == email).first()
+
+
+def set_teacher_app_password(db: Session, teacher_id: int, app_password_hash: str) -> None:
+    db.execute(
+        text("UPDATE teachers SET app_password_hash = :h WHERE id = :id"),
+        {"h": app_password_hash, "id": teacher_id},
+    )
+    db.commit()
+
+
+def register_teacher(
+    db: Session,
+    name: str,
+    email: str,
+    portal_username: str,
+    portal_password_encrypted: str,
+    app_password_hash: str,
+) -> Teacher:
+    """Insert a new teacher with encrypted portal password and hashed app password."""
+    db.execute(
+        text("""
+            INSERT INTO teachers (name, email, portal_username, portal_password_encrypted, app_password_hash)
+            VALUES (:name, :email, :portal_username, :portal_password_encrypted, :app_password_hash)
+        """),
+        {
+            "name": name,
+            "email": email,
+            "portal_username": portal_username,
+            "portal_password_encrypted": portal_password_encrypted,
+            "app_password_hash": app_password_hash,
+        },
+    )
+    db.commit()
+    return get_teacher_by_email(db, email)
+
+
 # ── Students ──────────────────────────────────────────────────────────────────
 
 def get_all_students(

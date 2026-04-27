@@ -1,10 +1,16 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
+function getToken() {
+  return localStorage.getItem('msrit_token');
+}
+
 async function request(path, options = {}) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
     throw new Error(err.detail || `HTTP ${res.status}`);
@@ -13,6 +19,35 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // ── Auth ─────────────────────────────────────────────────────────────────
+  login: ({ email, password }) =>
+    request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+
+  register: ({ name, email, portal_username, portal_password, app_password }) =>
+    request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ name, email, portal_username, portal_password, app_password }),
+    }),
+
+  // ── Me (authenticated teacher's own data) ─────────────────────────────────
+  getMyStudents: (semester) => {
+    const p = semester ? `?semester=${encodeURIComponent(semester)}` : '';
+    return request(`/me/students${p}`);
+  },
+
+  getMyLowAttendance: () =>
+    request('/me/low-attendance'),
+
+  sendMyAlert: ({ notifyTeacher = true, notifyStudent = true } = {}) =>
+    request('/me/alerts/send', {
+      method: 'POST',
+      body: JSON.stringify({ notify_teacher: notifyTeacher, notify_student: notifyStudent }),
+    }),
+
+  // ── Legacy (admin, backward-compatible) ──────────────────────────────────
   getTeachers: () =>
     request('/teachers'),
 
