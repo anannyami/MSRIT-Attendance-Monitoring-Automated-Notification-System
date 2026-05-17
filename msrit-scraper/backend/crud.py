@@ -20,10 +20,28 @@ def get_teacher_by_email(db: Session, email: str) -> Optional[Teacher]:
     return db.query(Teacher).filter(Teacher.email == email).first()
 
 
-def set_teacher_app_password(db: Session, teacher_id: int, app_password_hash: str) -> None:
+def set_teacher_app_password(
+    db: Session,
+    teacher_id: int,
+    app_password_hash: str,
+    portal_username: Optional[str] = None,
+    portal_password_encrypted: Optional[str] = None,
+) -> None:
+    """Update app password and optionally re-encrypt portal credentials."""
     db.execute(
-        text("UPDATE teachers SET app_password_hash = :h WHERE id = :id"),
-        {"h": app_password_hash, "id": teacher_id},
+        text("""
+            UPDATE teachers
+            SET app_password_hash        = :h,
+                portal_username          = COALESCE(:pu, portal_username),
+                portal_password_encrypted = COALESCE(:pe, portal_password_encrypted)
+            WHERE id = :id
+        """),
+        {
+            "h":  app_password_hash,
+            "pu": portal_username,
+            "pe": portal_password_encrypted,
+            "id": teacher_id,
+        },
     )
     db.commit()
 

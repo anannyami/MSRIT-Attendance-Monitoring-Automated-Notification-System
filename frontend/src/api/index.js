@@ -33,6 +33,9 @@ export const api = {
     }),
 
   // ── Me (authenticated teacher's own data) ─────────────────────────────────
+  runScraper: () =>
+    request('/scrape/run', { method: 'POST' }),
+
   getMyStudents: (semester) => {
     const p = semester ? `?semester=${encodeURIComponent(semester)}` : '';
     return request(`/me/students${p}`);

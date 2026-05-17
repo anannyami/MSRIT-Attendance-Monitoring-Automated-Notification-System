@@ -1,5 +1,6 @@
 import logging
 import sys
+import traceback
 
 from app.config import FERNET_KEY
 from app.db import init_db, get_all_teachers
@@ -49,6 +50,7 @@ def main():
             fail_count += 1
         except Exception as e:
             logger.error(f"Unexpected error for {teacher_name}: {e}")
+            logger.error(traceback.format_exc())
             fail_count += 1
 
     logger.info(f"{'─' * 60}")

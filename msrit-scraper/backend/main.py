@@ -12,6 +12,7 @@ from backend.models import Student
 from backend.routers import health, teachers, students, attendance, alerts
 from backend.routers import auth as auth_router
 from backend.routers import me as me_router
+from backend.routers import scraper as scraper_router
 from backend.config import API_HOST, API_PORT, ATTENDANCE_THRESHOLD, EMAILS_CSV_PATH
 
 logging.basicConfig(
@@ -105,6 +106,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth_router.router)
 app.include_router(me_router.router)
+app.include_router(scraper_router.router)
 app.include_router(teachers.router)
 app.include_router(students.router)
 app.include_router(attendance.router)

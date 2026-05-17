@@ -41,11 +41,11 @@ export default function Register() {
     setLoading(true);
     try {
       await api.register({
-        name:             form.name,
-        email:            form.email,
-        portal_username:  form.portal_username,
-        portal_password:  form.portal_password,
-        app_password:     form.app_password,
+        name:            form.name,
+        email:           form.email,
+        portal_username: form.portal_username,
+        portal_password: form.portal_password,
+        app_password:    form.app_password,
       });
       showToast('Account created! Please sign in.', 'success');
       navigate('/login', { replace: true });
@@ -57,125 +57,209 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card auth-card-wide">
-        <div className="auth-logo">
-          <span className="auth-logo-icon">🎓</span>
-          <div>
-            <div className="auth-logo-title">MSRIT Attendance Monitor</div>
-            <div className="auth-logo-sub">Department of Computer Science &amp; Engineering</div>
+    <div className="login-split">
+
+      {/* ── Left panel ── */}
+      <div className="login-left">
+        <div className="login-left-inner">
+
+          {/* Branding */}
+          <div className="login-brand">
+            <img src="/msritlogo.png" alt="MSRIT" className="login-brand-logo-img" />
+            <div>
+              <div className="login-brand-name">MSRIT</div>
+              <div className="login-brand-dept">M S Ramaiah Institute of Technology</div>
+            </div>
           </div>
+
+          {/* Welcome */}
+          <div className="login-welcome">
+            <h1 className="login-welcome-heading">Faculty Account<br />Registration</h1>
+            <p className="login-welcome-desc">
+              Register your faculty account to access the attendance management portal.
+              You will need your staff portal credentials to complete registration.
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div className="login-info-grid">
+            <div className="login-info-card">
+              <div className="login-info-accent" />
+              <div>
+                <div className="login-info-label">Step 1 — Identity</div>
+                <div className="login-info-value">Provide your full name and official MSRIT email address</div>
+              </div>
+            </div>
+            <div className="login-info-card">
+              <div className="login-info-accent" />
+              <div>
+                <div className="login-info-label">Step 2 — Portal Credentials</div>
+                <div className="login-info-value">Enter your existing staff portal username and password for scraper access</div>
+              </div>
+            </div>
+            <div className="login-info-card">
+              <div className="login-info-accent" />
+              <div>
+                <div className="login-info-label">Step 3 — Set Password</div>
+                <div className="login-info-value">Create a separate password to log in to this attendance portal</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notice */}
+          <div className="login-notice">
+            <div className="login-notice-header">
+              <span className="login-notice-dot" />
+              Important
+            </div>
+            <p className="login-notice-text">
+              Your portal credentials are stored encrypted and used only to
+              fetch attendance data on your behalf. Contact your administrator
+              if you do not have staff portal access.
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="login-left-footer">
+            Autonomous Institution — Affiliated to Visvesvaraya Technological University
+          </div>
+
         </div>
-
-        <h2 className="auth-heading">Create teacher account</h2>
-
-        {error && <div className="auth-error">{error}</div>}
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="name">Full name</label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              className="form-input"
-              placeholder="Dr. Jane Smith"
-              value={form.name}
-              onChange={handleChange}
-              required
-              autoFocus
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Email address</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              className="form-input"
-              placeholder="you@msrit.edu"
-              value={form.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="auth-divider">Portal credentials (used by scraper)</div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="portal_username">Portal username</label>
-            <input
-              id="portal_username"
-              name="portal_username"
-              type="text"
-              className="form-input"
-              placeholder="Staff portal login username"
-              value={form.portal_username}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="portal_password">Portal password</label>
-            <input
-              id="portal_password"
-              name="portal_password"
-              type="password"
-              className="form-input"
-              placeholder="Staff portal login password"
-              value={form.portal_password}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="auth-divider">App login password</div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="app_password">Password</label>
-            <input
-              id="app_password"
-              name="app_password"
-              type="password"
-              className="form-input"
-              placeholder="Min. 6 characters"
-              value={form.app_password}
-              onChange={handleChange}
-              required
-              minLength={6}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label" htmlFor="app_password_confirm">Confirm password</label>
-            <input
-              id="app_password_confirm"
-              name="app_password_confirm"
-              type="password"
-              className="form-input"
-              placeholder="Repeat your password"
-              value={form.app_password_confirm}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary auth-submit-btn"
-            disabled={loading}
-          >
-            {loading ? <><span className="spinner-sm" /> Creating account…</> : 'Create account'}
-          </button>
-        </form>
-
-        <p className="auth-footer">
-          Already have an account?{' '}
-          <Link to="/login" className="auth-link">Sign in</Link>
-        </p>
       </div>
+
+      {/* ── Right panel — registration form ── */}
+      <div className="login-right">
+        <div className="login-form-card register-form-card">
+
+          <div className="login-form-header">
+            <div className="login-form-logo">
+              <img src="/msritlogo.png" alt="MSRIT" className="login-form-logo-img" />
+              <div>
+                <div className="login-form-logo-title">MSRIT</div>
+                <div className="login-form-logo-sub">Attendance Portal</div>
+              </div>
+            </div>
+            <h2 className="login-form-heading">Create Account</h2>
+            <p className="login-form-subheading">Faculty registration — all fields required</p>
+          </div>
+
+          {error && <div className="login-form-error">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="login-form-body">
+
+            {/* Identity */}
+            <div className="login-field">
+              <label className="login-label" htmlFor="name">Full Name</label>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                className="login-input"
+                placeholder="Dr. Jane Smith"
+                value={form.name}
+                onChange={handleChange}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="email">Email Address</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                className="login-input"
+                placeholder="you@msrit.edu"
+                value={form.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* Portal credentials */}
+            <div className="register-section-divider">Portal Credentials</div>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="portal_username">Portal Username</label>
+              <input
+                id="portal_username"
+                name="portal_username"
+                type="text"
+                className="login-input"
+                placeholder="Staff portal login username"
+                value={form.portal_username}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="portal_password">Portal Password</label>
+              <input
+                id="portal_password"
+                name="portal_password"
+                type="password"
+                className="login-input"
+                placeholder="Staff portal login password"
+                value={form.portal_password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            {/* App password */}
+            <div className="register-section-divider">Portal Login Password</div>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="app_password">Password</label>
+              <input
+                id="app_password"
+                name="app_password"
+                type="password"
+                className="login-input"
+                placeholder="Min. 6 characters"
+                value={form.app_password}
+                onChange={handleChange}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="app_password_confirm">Confirm Password</label>
+              <input
+                id="app_password_confirm"
+                name="app_password_confirm"
+                type="password"
+                className="login-input"
+                placeholder="Repeat your password"
+                value={form.app_password_confirm}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="login-btn"
+              disabled={loading}
+            >
+              {loading
+                ? <><span className="login-spinner" /> Creating account…</>
+                : 'Create Account'}
+            </button>
+
+          </form>
+
+          <p className="login-form-footer">
+            Already have an account?{' '}
+            <Link to="/login" className="login-form-link">Sign in</Link>
+          </p>
+
+        </div>
+      </div>
+
     </div>
   );
 }

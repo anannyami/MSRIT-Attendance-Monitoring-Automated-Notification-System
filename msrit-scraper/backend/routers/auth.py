@@ -32,10 +32,14 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     app_hash = _hash_password(body.app_password)
     portal_enc = Fernet(FERNET_KEY.encode()).encrypt(body.portal_password.encode()).decode()
 
-    # Teacher added via CLI (no app_password_hash) — let them set a password now
+    # Teacher added via CLI (no app_password_hash) — set password AND re-encrypt portal creds
     if existing and not existing.app_password_hash:
-        crud.set_teacher_app_password(db, existing.id, app_hash)
-        logger.info(f"Existing teacher set app password: {existing.email} (id={existing.id})")
+        crud.set_teacher_app_password(
+            db, existing.id, app_hash,
+            portal_username=body.portal_username,
+            portal_password_encrypted=portal_enc,
+        )
+        logger.info(f"Existing teacher set app password + re-encrypted portal creds: {existing.email} (id={existing.id})")
         return {"id": existing.id, "email": existing.email, "name": existing.name}
 
     # Already fully registered

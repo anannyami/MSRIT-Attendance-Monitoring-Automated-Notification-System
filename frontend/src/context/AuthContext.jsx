@@ -5,8 +5,13 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem('msrit_token'));
   const [teacher, setTeacher] = useState(() => {
-    const stored = localStorage.getItem('msrit_teacher');
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem('msrit_teacher');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      localStorage.removeItem('msrit_teacher');
+      return null;
+    }
   });
 
   const login = useCallback((tokenData) => {

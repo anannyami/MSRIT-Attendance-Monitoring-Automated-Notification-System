@@ -16,7 +16,7 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <div className="navbar-brand">
-        <span className="navbar-logo">🎓</span>
+        <img src="/msritlogo.png" alt="MSRIT" className="navbar-logo-img" />
         <div className="navbar-title">
           <span className="navbar-name">MSRIT Attendance Monitor</span>
           <span className="navbar-sub">Department of Computer Science &amp; Engineering</span>
@@ -42,7 +42,7 @@ export default function Navbar() {
         </div>
       ) : (
         <div className="navbar-links">
-          <NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+          <NavLink to="/login" className="nav-link">
             Sign in
           </NavLink>
         </div>

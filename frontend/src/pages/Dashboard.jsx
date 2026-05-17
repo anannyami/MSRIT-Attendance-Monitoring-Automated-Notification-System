@@ -16,6 +16,7 @@ export default function Dashboard() {
 
   const [notifyTeacher, setNotifyTeacher] = useState(true);
   const [notifyStudent, setNotifyStudent] = useState(true);
+  const [scraping, setScraping]           = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -63,14 +64,48 @@ export default function Dashboard() {
     }
   }, [notifyTeacher, notifyStudent, showToast]);
 
+  const runScraper = useCallback(async () => {
+    setScraping(true);
+    showToast('Scraper started — this takes 30–60 seconds…', 'info');
+    try {
+      const result = await api.runScraper();
+      if (result.status === 'success') {
+        showToast(`✓ ${result.message}`, 'success');
+        loadData();
+      } else if (result.status === 'busy') {
+        showToast('Scraper is already running — please wait', 'info');
+      } else {
+        showToast(`Scraper failed: ${result.message}`, 'error');
+      }
+    } catch (err) {
+      showToast(`Scraper error: ${err.message}`, 'error');
+    } finally {
+      setScraping(false);
+    }
+  }, [showToast, loadData]);
+
   return (
     <div className="page-container">
 
       <div className="page-header">
-        <h1 className="page-title">Attendance Dashboard</h1>
-        <p className="page-subtitle">
-          Showing attendance data for <strong>{teacher?.name}</strong>
-        </p>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Attendance Dashboard</h1>
+            <p className="page-subtitle">
+              Showing attendance data for <strong>{teacher?.name}</strong>
+            </p>
+          </div>
+          <button
+            className="btn btn-outline refresh-btn"
+            onClick={runScraper}
+            disabled={scraping}
+            title="Fetch latest attendance from portal"
+          >
+            {scraping
+              ? <><span className="spinner-sm spinner-dark" /> Scraping…</>
+              : <>↻ Refresh Data</>}
+          </button>
+        </div>
       </div>
 
       {summary && (
