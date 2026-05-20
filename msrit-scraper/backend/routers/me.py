@@ -99,6 +99,9 @@ def send_my_alert(
         f"Queuing background alert for teacher id={teacher.id}, {len(low_students)} student(s)"
     )
 
+    # Calculate expected emails: 1 teacher summary + 1 per student (if enabled)
+    expected_emails = (1 if body.notify_teacher else 0) + (len(low_students) if body.notify_student else 0)
+
     # Fire and return immediately — avoids Render's 30s connection timeout
     background_tasks.add_task(_fire_alert_background, payload, teacher.id)
 
@@ -108,7 +111,7 @@ def send_my_alert(
         "teacher_email": teacher.email,
         "students_alerted": len(low_students),
         "status": "success",
-        "emails_sent": len(low_students),
+        "emails_sent": expected_emails,
         "records_logged": 0,
         "detail": f"Alert queued for {len(low_students)} student(s) — emails sending in background",
     })
