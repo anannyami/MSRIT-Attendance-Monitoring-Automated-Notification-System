@@ -4,12 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# SMTP
-SMTP_SERVER   = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER     = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-ALERT_SENDER  = os.getenv("ALERT_SENDER", SMTP_USER)
+# Resend API (replaces SMTP — works on all cloud platforms)
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+ALERT_SENDER   = os.getenv("ALERT_SENDER", "onboarding@resend.dev")
 
 # Database
 DB_HOST     = os.getenv("DB_HOST", "localhost")
