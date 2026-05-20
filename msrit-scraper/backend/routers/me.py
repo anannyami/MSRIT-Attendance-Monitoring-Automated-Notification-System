@@ -1,7 +1,8 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -43,12 +44,21 @@ def get_my_low_attendance(
     )
 
 
+def _fire_alert_background(payload: dict, teacher_id: int) -> None:
+    """Runs in background — calls notification service without blocking the HTTP response."""
+    try:
+        result = send_alert_to_service(payload)
+        logger.info(f"Background alert done for teacher id={teacher_id}: {result}")
+    except RuntimeError as e:
+        logger.error(f"Background alert failed for teacher id={teacher_id}: {e}")
+
+
 @router.post(
     "/alerts/send",
-    response_model=AlertSendResponse,
-    summary="Send attendance alerts for my students",
+    summary="Send attendance alerts for my students (fires in background)",
 )
 def send_my_alert(
+    background_tasks: BackgroundTasks,
     body: AlertSendRequest = AlertSendRequest(),
     threshold: Optional[float] = Query(None, ge=0, le=100),
     db: Session = Depends(get_db),
@@ -68,16 +78,16 @@ def send_my_alert(
 
     if not low_students:
         logger.info(f"No low-attendance students for teacher id={teacher.id} — skipping")
-        return AlertSendResponse(
-            teacher_id=teacher.id,
-            teacher_name=teacher.name,
-            teacher_email=teacher.email,
-            students_alerted=0,
-            status="skipped",
-            emails_sent=0,
-            records_logged=0,
-            detail="No students below attendance threshold — no email sent",
-        )
+        return JSONResponse(content={
+            "teacher_id": teacher.id,
+            "teacher_name": teacher.name,
+            "teacher_email": teacher.email,
+            "students_alerted": 0,
+            "status": "skipped",
+            "emails_sent": 0,
+            "records_logged": 0,
+            "detail": "No students below attendance threshold — no email sent",
+        })
 
     payload = _build_notify_payload(
         teacher, low_students,
@@ -86,30 +96,19 @@ def send_my_alert(
     )
 
     logger.info(
-        f"Sending alert for teacher id={teacher.id}, {len(low_students)} student(s)"
+        f"Queuing background alert for teacher id={teacher.id}, {len(low_students)} student(s)"
     )
 
-    try:
-        result = send_alert_to_service(payload)
-        return AlertSendResponse(
-            teacher_id=teacher.id,
-            teacher_name=teacher.name,
-            teacher_email=teacher.email,
-            students_alerted=len(low_students),
-            status=result.get("status", "unknown"),
-            emails_sent=result.get("emails_sent", 0),
-            records_logged=result.get("records_logged", 0),
-            detail=result.get("detail"),
-        )
-    except RuntimeError as e:
-        logger.error(f"Notification service failed for teacher id={teacher.id}: {e}")
-        return AlertSendResponse(
-            teacher_id=teacher.id,
-            teacher_name=teacher.name,
-            teacher_email=teacher.email,
-            students_alerted=len(low_students),
-            status="failed",
-            emails_sent=0,
-            records_logged=0,
-            detail=str(e),
-        )
+    # Fire and return immediately — avoids Render's 30s connection timeout
+    background_tasks.add_task(_fire_alert_background, payload, teacher.id)
+
+    return JSONResponse(content={
+        "teacher_id": teacher.id,
+        "teacher_name": teacher.name,
+        "teacher_email": teacher.email,
+        "students_alerted": len(low_students),
+        "status": "success",
+        "emails_sent": len(low_students),
+        "records_logged": 0,
+        "detail": f"Alert queued for {len(low_students)} student(s) — emails sending in background",
+    })
