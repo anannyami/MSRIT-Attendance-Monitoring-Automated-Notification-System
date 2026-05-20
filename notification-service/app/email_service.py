@@ -1,17 +1,45 @@
-import resend
+import requests
 
-from app.config import RESEND_API_KEY, ALERT_SENDER
+from app.config import BREVO_API_KEY, ALERT_SENDER
 from app.logger import get_logger
 from app.schemas import NotifyRequest, StudentAlert
 
 logger = get_logger(__name__)
+
+BREVO_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+def _brevo_send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    """Send a single email via Brevo HTTP API."""
+    if not BREVO_API_KEY:
+        return False, "BREVO_API_KEY not configured"
+    if not ALERT_SENDER:
+        return False, "ALERT_SENDER not configured"
+
+    payload = {
+        "sender":      {"name": "MSRIT Attendance", "email": ALERT_SENDER},
+        "to":          [{"email": to_email}],
+        "subject":     subject,
+        "htmlContent": html,
+    }
+    try:
+        resp = requests.post(
+            BREVO_URL,
+            json=payload,
+            headers={"api-key": BREVO_API_KEY, "Content-Type": "application/json"},
+            timeout=30,
+        )
+        if resp.status_code in (200, 201):
+            return True, ""
+        return False, f"Brevo API error {resp.status_code}: {resp.text}"
+    except Exception as e:
+        return False, f"Unexpected email error: {e}"
 
 
 # ── Teacher summary email ─────────────────────────────────────────────────────
 
 def _build_teacher_html(req: NotifyRequest) -> str:
     total_subjects = sum(len(s.subjects) for s in req.students)
-
     rows = ""
     for student in req.students:
         first = True
@@ -37,8 +65,7 @@ def _build_teacher_html(req: NotifyRequest) -> str:
                     <td style="padding:10px 12px;border:1px solid #ddd;text-align:center;">{subj.attended_classes}/{subj.total_classes}</td>
                 </tr>"""
 
-    return f"""
-    <!DOCTYPE html>
+    return f"""<!DOCTYPE html>
     <html>
     <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:24px;">
       <div style="max-width:750px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
@@ -78,34 +105,19 @@ def _build_teacher_html(req: NotifyRequest) -> str:
         </div>
       </div>
     </body>
-    </html>
-    """
+    </html>"""
 
 
 def send_email(req: NotifyRequest) -> tuple[bool, str]:
-    """Send HTML summary alert to teacher via Resend API."""
-    if not RESEND_API_KEY:
-        err = "RESEND_API_KEY not configured"
-        logger.error(err)
-        return False, err
-
-    resend.api_key = RESEND_API_KEY
+    """Send HTML summary alert to teacher via Brevo API."""
     subject = f"Attendance Alert — {len(req.students)} student(s) require attention"
-
-    try:
-        params: resend.Emails.SendParams = {
-            "from": f"MSRIT Attendance <{ALERT_SENDER}>",
-            "to": [req.teacher.email],
-            "subject": subject,
-            "html": _build_teacher_html(req),
-        }
-        resend.Emails.send(params)
-        logger.info(f"Teacher email sent to {req.teacher.email} via Resend")
-        return True, ""
-    except Exception as e:
-        err = f"Unexpected email error: {e}"
-        logger.error(err)
-        return False, err
+    html    = _build_teacher_html(req)
+    ok, err = _brevo_send(req.teacher.email, subject, html)
+    if ok:
+        logger.info(f"Teacher email sent to {req.teacher.email} via Brevo")
+    else:
+        logger.error(f"Teacher email failed: {err}")
+    return ok, err
 
 
 # ── Student personalized email ────────────────────────────────────────────────
@@ -122,8 +134,7 @@ def _build_student_html(student: StudentAlert, teacher_name: str) -> str:
             <td style="padding:10px 12px;border:1px solid #ddd;text-align:center;">{subj.attended_classes}/{subj.total_classes}</td>
         </tr>"""
 
-    return f"""
-    <!DOCTYPE html>
+    return f"""<!DOCTYPE html>
     <html>
     <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:24px;">
       <div style="max-width:650px;margin:auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
@@ -147,7 +158,7 @@ def _build_student_html(student: StudentAlert, teacher_name: str) -> str:
             </thead>
             <tbody>{rows}</tbody>
           </table>
-          <p style="font-size:13px;color:#555;margin-top:20px;line-height:1.6;">
+          <p style="font-size:13px;color:#555;margin-top:20px;">
             <strong>USN:</strong> {student.usn} &nbsp;|&nbsp; <strong>Semester:</strong> {student.semester}
           </p>
           <p style="font-size:13px;color:#888;margin-top:16px;">
@@ -161,34 +172,21 @@ def _build_student_html(student: StudentAlert, teacher_name: str) -> str:
         </div>
       </div>
     </body>
-    </html>
-    """
+    </html>"""
 
 
 def send_student_email(student: StudentAlert, teacher_name: str) -> tuple[bool, str]:
-    """Send personalized attendance warning to student via Resend API."""
+    """Send personalized attendance warning to student via Brevo API."""
     if not student.student_email:
         reason = f"No email on record for student {student.usn} — skipped"
         logger.info(reason)
         return False, reason
 
-    if not RESEND_API_KEY:
-        return False, "RESEND_API_KEY not configured"
-
-    resend.api_key = RESEND_API_KEY
     subject = f"Attendance Warning — {len(student.subjects)} subject(s) below threshold | {student.usn}"
-
-    try:
-        params: resend.Emails.SendParams = {
-            "from": f"MSRIT Attendance <{ALERT_SENDER}>",
-            "to": [student.student_email],
-            "subject": subject,
-            "html": _build_student_html(student, teacher_name),
-        }
-        resend.Emails.send(params)
-        logger.info(f"Student email sent to {student.student_email} ({student.usn}) via Resend")
-        return True, ""
-    except Exception as e:
-        err = f"Unexpected error sending to {student.student_email}: {e}"
-        logger.error(err)
-        return False, err
+    html    = _build_student_html(student, teacher_name)
+    ok, err = _brevo_send(student.student_email, subject, html)
+    if ok:
+        logger.info(f"Student email sent to {student.student_email} ({student.usn}) via Brevo")
+    else:
+        logger.error(f"Student email failed for {student.usn}: {err}")
+    return ok, err

@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Resend API (replaces SMTP — works on all cloud platforms)
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-ALERT_SENDER   = os.getenv("ALERT_SENDER", "onboarding@resend.dev")
+# Brevo API (replaces SMTP — works on all cloud platforms, no domain verification needed)
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+ALERT_SENDER  = os.getenv("ALERT_SENDER", "")
 
 # Database
 DB_HOST     = os.getenv("DB_HOST", "localhost")
