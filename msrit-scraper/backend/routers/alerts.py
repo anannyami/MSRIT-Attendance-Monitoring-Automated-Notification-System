@@ -182,7 +182,7 @@ def get_alert_logs(
         response = httpx.get(
             f"{NOTIFICATION_SERVICE_URL}/alerts/logs",
             params=params,
-            timeout=10,
+            timeout=60,
         )
         response.raise_for_status()
         return response.json()

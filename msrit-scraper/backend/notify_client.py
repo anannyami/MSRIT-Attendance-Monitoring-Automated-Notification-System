@@ -5,7 +5,7 @@ from backend.config import NOTIFICATION_SERVICE_URL
 
 logger = logging.getLogger(__name__)
 
-TIMEOUT     = 10   # seconds per attempt
+TIMEOUT     = 60   # seconds per attempt — Render free tier cold start can take 30-50s
 MAX_RETRIES = 1    # retry once on timeout
 
 
