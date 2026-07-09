@@ -472,3 +472,4 @@ kill $(lsof -ti:5173)   # frontend
 | Database | PostgreSQL 14+, psycopg2 |
 | Frontend | React 18, Vite 5, react-router-dom v6 |
 | Styling | Pure CSS (no UI framework) — MSRIT navy `#1a237e` theme |
+_Last updated by Anam._
