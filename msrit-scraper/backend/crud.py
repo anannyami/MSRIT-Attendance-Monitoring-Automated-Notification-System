@@ -96,30 +96,26 @@ def get_student_by_usn(db: Session, usn: str) -> Optional[Student]:
 # ── Attendance ────────────────────────────────────────────────────────────────
 
 def get_latest_attendance_for_usn(
-    db: Session, usn: str
+    db: Session,
+    usn: str,
 ) -> list[AttendanceRecord]:
-    """
-    Return the most recently scraped attendance records for a student.
-    Filters to only today's records if they exist; otherwise latest available date.
-    """
-    student = get_student_by_usn(db, usn)
-    if not student:
-        return []
 
-    # Find the most recent scrape date for this student
-    latest_date = (
-        db.query(func.max(func.date(AttendanceRecord.scraped_at)))
-        .filter(AttendanceRecord.student_id == student.id)
+    latest = (
+        db.query(func.max(AttendanceRecord.scraped_at))
+        .join(Student)
+        .filter(Student.usn == usn)
         .scalar()
     )
-    if not latest_date:
+
+    if latest is None:
         return []
 
     return (
         db.query(AttendanceRecord)
+        .join(Student)
         .filter(
-            AttendanceRecord.student_id == student.id,
-            func.date(AttendanceRecord.scraped_at) == latest_date,
+            Student.usn == usn,
+            AttendanceRecord.scraped_at == latest,
         )
         .order_by(AttendanceRecord.subject_name)
         .all()
@@ -195,6 +191,7 @@ def get_low_attendance_students(
 
 # ── Summary ───────────────────────────────────────────────────────────────────
 
+"""
 def get_summary(db: Session, threshold: Optional[float] = None) -> dict:
     if threshold is None:
         threshold = ATTENDANCE_THRESHOLD
@@ -224,4 +221,37 @@ def get_summary(db: Session, threshold: Optional[float] = None) -> dict:
         "threshold":                threshold,
         "average_attendance":       average_attendance,
         "last_scraped_at":          last_scraped_at,
+    }
+"""
+
+def get_summary(db: Session, threshold: Optional[float] = None):
+
+    if threshold is None:
+        threshold = ATTENDANCE_THRESHOLD
+
+    total_teachers = db.query(func.count(Teacher.id)).scalar()
+
+    total_students = db.query(func.count(Student.id)).scalar()
+
+    stats = db.query(
+        func.count(AttendanceRecord.id),
+        func.avg(AttendanceRecord.attendance_percentage),
+        func.max(AttendanceRecord.scraped_at),
+        func.count(
+            func.distinct(
+                AttendanceRecord.student_id
+            )
+        ).filter(
+            AttendanceRecord.attendance_percentage < threshold
+        ),
+    ).one()
+
+    return {
+        "total_teachers": total_teachers,
+        "total_students": total_students,
+        "total_attendance_records": stats[0],
+        "average_attendance": float(round(stats[1], 2)),
+        "last_scraped_at": stats[2],
+        "low_attendance_students": stats[3],
+        "threshold": threshold,
     }
