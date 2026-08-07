@@ -1,4 +1,6 @@
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -11,6 +13,9 @@ from app.logger import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
+# Maximum number of concurrent student email workers
+MAX_EMAIL_WORKERS = 8
+
 
 @router.post(
     "/notify",
@@ -19,7 +24,10 @@ router = APIRouter()
 )
 def notify(req: NotifyRequest, db: Session = Depends(get_db)):
     if not req.students:
-        raise HTTPException(status_code=400, detail="students list cannot be empty")
+        raise HTTPException(
+            status_code=400,
+            detail="students list cannot be empty",
+        )
 
     if not req.notify_teacher and not req.notify_student:
         raise HTTPException(
@@ -30,98 +38,176 @@ def notify(req: NotifyRequest, db: Session = Depends(get_db)):
     logger.info(
         f"Notify request — teacher: {req.teacher.email}, "
         f"students: {len(req.students)}, "
-        f"notify_teacher={req.notify_teacher}, notify_student={req.notify_student}"
+        f"notify_teacher={req.notify_teacher}, "
+        f"notify_student={req.notify_student}"
     )
 
     emails_sent = 0
     log_entries: list[AlertLog] = []
 
-    # ── 1. Send teacher summary email ─────────────────────────────────────────
+    # ==========================================================
+    # 1. Send Teacher Summary Email
+    # ==========================================================
+
     teacher_ok = False
     teacher_err = ""
+
     if req.notify_teacher:
         teacher_ok, teacher_err = send_email(req)
+
         if teacher_ok:
             emails_sent += 1
 
-        # Log one row per (student, subject) for the teacher email
         for student in req.students:
             for subj in student.subjects:
-                log_entries.append(AlertLog(
-                    teacher_email         = req.teacher.email,
-                    student_name          = student.name,
-                    usn                   = student.usn,
-                    subject_name          = subj.subject_name,
-                    attendance_percentage = subj.attendance_percentage,
-                    status                = "success" if teacher_ok else "failed",
-                    error_message         = teacher_err if not teacher_ok else None,
-                    recipient_type        = "teacher",
-                ))
+                log_entries.append(
+                    AlertLog(
+                        teacher_email=req.teacher.email,
+                        student_name=student.name,
+                        usn=student.usn,
+                        subject_name=subj.subject_name,
+                        attendance_percentage=subj.attendance_percentage,
+                        status="success" if teacher_ok else "failed",
+                        error_message=None if teacher_ok else teacher_err,
+                        recipient_type="teacher",
+                    )
+                )
 
-    # ── 2. Send personalized email to each student ────────────────────────────
+    # ==========================================================
+    # 2. Send Student Emails Concurrently
+    # ==========================================================
+
     if req.notify_student:
-        for student in req.students:
-            student_ok, student_err = send_student_email(student, req.teacher.name)
 
-            # Only log if the student had an email address (i.e. an actual send attempt)
-            if student.student_email:
-                if student_ok:
-                    emails_sent += 1
-                for subj in student.subjects:
-                    log_entries.append(AlertLog(
-                        teacher_email         = req.teacher.email,
-                        student_name          = student.name,
-                        usn                   = student.usn,
-                        subject_name          = subj.subject_name,
-                        attendance_percentage = subj.attendance_percentage,
-                        status                = "success" if student_ok else "failed",
-                        error_message         = student_err if not student_ok else None,
-                        recipient_type        = "student",
-                    ))
+        students_with_email = [
+            student
+            for student in req.students
+            if student.student_email
+        ]
 
-    # ── 3. Persist log entries ────────────────────────────────────────────────
+        if students_with_email:
+
+            worker_count = min(
+                MAX_EMAIL_WORKERS,
+                len(students_with_email),
+            )
+
+            with ThreadPoolExecutor(max_workers=worker_count) as executor:
+
+                future_to_student = {
+                    executor.submit(
+                        send_student_email,
+                        student,
+                        req.teacher.name,
+                    ): student
+                    for student in students_with_email
+                }
+
+                for future in as_completed(future_to_student):
+
+                    student = future_to_student[future]
+
+                    try:
+                        student_ok, student_err = future.result()
+
+                    except Exception as exc:
+                        logger.exception(
+                            f"Unexpected error while sending email to {student.usn}: {exc}"
+                        )
+                        student_ok = False
+                        student_err = str(exc)
+
+                    if student_ok:
+                        emails_sent += 1
+
+                    for subj in student.subjects:
+                        log_entries.append(
+                            AlertLog(
+                                teacher_email=req.teacher.email,
+                                student_name=student.name,
+                                usn=student.usn,
+                                subject_name=subj.subject_name,
+                                attendance_percentage=subj.attendance_percentage,
+                                status="success" if student_ok else "failed",
+                                error_message=None if student_ok else student_err,
+                                recipient_type="student",
+                            )
+                        )
+
+        else:
+            logger.info("No student email addresses available.")
+
+       # ==========================================================
+    # 3. Persist Log Entries
+    # ==========================================================
+
     records_logged = 0
+
     try:
         db.add_all(log_entries)
         db.commit()
+
         records_logged = len(log_entries)
-        logger.info(f"Logged {records_logged} alert records to DB")
+
+        logger.info(
+            f"Logged {records_logged} alert records to database."
+        )
+
     except Exception as e:
-        logger.error(f"DB logging failed: {e}")
+        logger.error(f"Database logging failed: {e}")
         db.rollback()
 
-    # ── 4. Determine overall status ───────────────────────────────────────────
-    # An attempt is considered successful if at least one email was sent
+    # ==========================================================
+    # 4. Build Response
+    # ==========================================================
+
     any_sent = emails_sent > 0
     detail: Optional[str] = None
 
     if any_sent and records_logged > 0:
         status = "success"
+
     elif any_sent and records_logged == 0:
         status = "partial"
-        detail = "Email(s) sent but DB logging failed"
+        detail = "Email(s) sent successfully but database logging failed."
+
     elif not any_sent and records_logged > 0:
         status = "partial"
+
         errors = []
+
         if req.notify_teacher and not teacher_ok:
             errors.append(f"Teacher email failed: {teacher_err}")
+
         if req.notify_student:
-            errors.append("No student emails sent (missing email addresses or SMTP error)")
-        detail = " | ".join(errors) if errors else "No emails sent"
+            errors.append("No student emails were sent.")
+
+        detail = " | ".join(errors) if errors else "No emails sent."
+
     else:
         status = "failed"
+
         errors = []
+
         if req.notify_teacher and not teacher_ok:
-            errors.append(f"Teacher email: {teacher_err}")
-        detail = "; ".join(errors) if errors else "All email attempts failed"
+            errors.append(f"Teacher email failed: {teacher_err}")
+
+        if req.notify_student:
+            errors.append("All student email attempts failed.")
+
+        detail = "; ".join(errors) if errors else "All email attempts failed."
 
     return NotifyResponse(
-        status         = status,
-        emails_sent    = emails_sent,
-        records_logged = records_logged,
-        detail         = detail,
+        status=status,
+        emails_sent=emails_sent,
+        records_logged=records_logged,
+        detail=detail,
     )
 
+
+# ==========================================================
+# Alert Log API
+# ==========================================================
 
 @router.get(
     "/alerts/logs",
@@ -129,21 +215,51 @@ def notify(req: NotifyRequest, db: Session = Depends(get_db)):
     summary="Query alert log history",
 )
 def get_alert_logs(
-    teacher_email:  Optional[str] = Query(None, description="Filter by teacher email"),
-    usn:            Optional[str] = Query(None, description="Filter by student USN"),
-    status:         Optional[str] = Query(None, description="Filter by status: success | failed"),
-    recipient_type: Optional[str] = Query(None, description="Filter by recipient: teacher | student"),
-    limit:          int           = Query(100, ge=1, le=1000),
-    skip:           int           = Query(0, ge=0),
+    teacher_email: Optional[str] = Query(
+        None,
+        description="Filter by teacher email",
+    ),
+    usn: Optional[str] = Query(
+        None,
+        description="Filter by student USN",
+    ),
+    status: Optional[str] = Query(
+        None,
+        description="Filter by status",
+    ),
+    recipient_type: Optional[str] = Query(
+        None,
+        description="teacher | student",
+    ),
+    limit: int = Query(
+        100,
+        ge=1,
+        le=1000,
+    ),
+    skip: int = Query(
+        0,
+        ge=0,
+    ),
     db: Session = Depends(get_db),
 ):
+
     q = db.query(AlertLog)
+
     if teacher_email:
         q = q.filter(AlertLog.teacher_email == teacher_email)
+
     if usn:
         q = q.filter(AlertLog.usn == usn.upper())
+
     if status:
         q = q.filter(AlertLog.status == status)
+
     if recipient_type:
         q = q.filter(AlertLog.recipient_type == recipient_type)
-    return q.order_by(AlertLog.created_at.desc()).offset(skip).limit(limit).all()
+
+    return (
+        q.order_by(AlertLog.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )

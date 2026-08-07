@@ -54,8 +54,10 @@ class AttendanceRecord(Base):
     __tablename__ = "attendance_records"
 
     id: Mapped[int]                                     = mapped_column(Integer, primary_key=True)
-    student_id: Mapped[Optional[int]]                   = mapped_column(
-        Integer, ForeignKey("students.id", ondelete="CASCADE")
+    student_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("students.id", ondelete="CASCADE"),
+        index=True,
     )
     subject_name: Mapped[Optional[str]]                 = mapped_column(String(255))
     course_type: Mapped[Optional[str]]                  = mapped_column(String(100))
@@ -64,8 +66,10 @@ class AttendanceRecord(Base):
     attended_classes: Mapped[Optional[int]]             = mapped_column(Integer)
     cie_max_marks: Mapped[Optional[int]]                = mapped_column(Integer)
     cie_obtained_marks: Mapped[Optional[int]]           = mapped_column(Integer)
-    scraped_at: Mapped[datetime]                        = mapped_column(
-        TIMESTAMP(timezone=True), server_default=func.now()
+    scraped_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        index=True,
     )
 
     student: Mapped[Optional["Student"]] = relationship("Student", back_populates="attendance_records")

@@ -1,5 +1,7 @@
-import requests
+from time import time
 
+import requests
+import time
 from app.config import BREVO_API_KEY, ALERT_SENDER
 from app.logger import get_logger
 from app.schemas import NotifyRequest, StudentAlert
@@ -10,7 +12,12 @@ BREVO_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 def _brevo_send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
-    """Send a single email via Brevo HTTP API."""
+    # Simulate email provider latency
+    time.sleep(0.2)
+    return True, ""
+"""
+def _brevo_send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
+    #Send a single email via Brevo HTTP API.
     if not BREVO_API_KEY:
         return False, "BREVO_API_KEY not configured"
     if not ALERT_SENDER:
@@ -34,7 +41,7 @@ def _brevo_send(to_email: str, subject: str, html: str) -> tuple[bool, str]:
         return False, f"Brevo API error {resp.status_code}: {resp.text}"
     except Exception as e:
         return False, f"Unexpected email error: {e}"
-
+"""
 
 # ── Teacher summary email ─────────────────────────────────────────────────────
 

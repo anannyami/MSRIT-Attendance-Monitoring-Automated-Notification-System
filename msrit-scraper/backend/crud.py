@@ -1,7 +1,7 @@
 from typing import Optional
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session, joinedload
-
+from sqlalchemy import func, distinct
 from backend.models import Teacher, Student, AttendanceRecord
 from backend.config import ATTENDANCE_THRESHOLD
 
@@ -224,34 +224,37 @@ def get_summary(db: Session, threshold: Optional[float] = None) -> dict:
     }
 """
 
+
 def get_summary(db: Session, threshold: Optional[float] = None):
 
     if threshold is None:
         threshold = ATTENDANCE_THRESHOLD
 
-    total_teachers = db.query(func.count(Teacher.id)).scalar()
+    result = db.query(
+        # Teachers
+        db.query(func.count(Teacher.id)).scalar_subquery(),
 
-    total_students = db.query(func.count(Student.id)).scalar()
+        # Students
+        db.query(func.count(Student.id)).scalar_subquery(),
 
-    stats = db.query(
+        # Attendance stats
         func.count(AttendanceRecord.id),
         func.avg(AttendanceRecord.attendance_percentage),
         func.max(AttendanceRecord.scraped_at),
+
         func.count(
-            func.distinct(
-                AttendanceRecord.student_id
-            )
+            distinct(AttendanceRecord.student_id)
         ).filter(
             AttendanceRecord.attendance_percentage < threshold
         ),
     ).one()
 
     return {
-        "total_teachers": total_teachers,
-        "total_students": total_students,
-        "total_attendance_records": stats[0],
-        "average_attendance": float(round(stats[1], 2)),
-        "last_scraped_at": stats[2],
-        "low_attendance_students": stats[3],
+        "total_teachers": result[0],
+        "total_students": result[1],
+        "total_attendance_records": result[2],
+        "average_attendance": float(round(result[3], 2)),
+        "last_scraped_at": result[4],
+        "low_attendance_students": result[5],
         "threshold": threshold,
     }
